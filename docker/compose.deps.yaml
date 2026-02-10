@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: on-failure
+    environment:
+      POSTGRES_DB: bank
+      POSTGRES_USER: quicky
+      POSTGRES_PASSWORD: 123
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - bank-db-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      - app-net
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "quicky", "-d", "bank" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+  migrations:
+    build: 
+      context: ./../
+      dockerfile: ./docker/migrations.Dockerfile
+    networks:
+      - app-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+  rabbitmq:
+    image: rabbitmq:4.2.3-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    restart: on-failure
+    ports:
+      - 5672:5672
+      - 15672:15672
+    networks:
+      - app-net
+    volumes:
+      - rabbitmq-lib:/var/lib/rabbitmq/
+      - rabbitmq-log:/var/log/rabbitmq
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:5672"]
+        interval: 10s
+        timeout: 3s
+        retries: 5
+        start_period: 1s
+
+volumes:
+  bank-db-data:
+  rabbitmq-lib:
+  rabbitmq-log:
+
+networks:
+  app-net:

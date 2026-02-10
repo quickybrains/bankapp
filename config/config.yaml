@@ -1,0 +1,15 @@
+http:
+  host: localhost
+  port: 8080
+db:
+  host: localhost
+  port: 5432
+  user: quicky
+  password: 123
+  dbName: bank
+log:
+  filename: ./log
+  maxSize: 500
+  maxBackups: 3
+  maxAge: 28,
+  compress: true

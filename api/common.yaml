@@ -1,0 +1,46 @@
+components:
+  parameters:
+    idParam:
+      description: An ID of an account or a transaction. The UUID format is used.
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+  schemas:
+    errorResp:
+      description: Error model in case api returns some error instead of valid response
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message.
+          maxLength: 256
+          example: No account with provided ID.
+      required:
+        - message
+    negativeAmountError:
+      description: Negative amount is prohibited.
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/errorResp'
+    insufficientBalanceError:
+      description: The account balance is insufficient.
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/errorResp'
+    amount:
+      type: number
+      format: double
+      description: Amount model used for debiting/withdrawal/transferring money. Negative amount is prohibited.
+      example: 214.54
+    datetime:
+      type: integer
+      format: int64
+      description: Unix timestamp (seconds or milliseconds since the Unix epoch)
+      minimum: 0
+      example: 1769850618

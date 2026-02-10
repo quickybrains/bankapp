@@ -1,0 +1,9 @@
+package: api
+generate:
+  # Генерируем интерфейс и обвязку для net/http (стандартная библиотека)
+  std-http-server: true
+import-mapping:
+  common.yaml: github.com/quickybrains/bankapp/internal/ports/http/common
+output-options:
+  # to make sure that all types are generated
+  skip-prune: true

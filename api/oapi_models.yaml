@@ -1,0 +1,9 @@
+package: api
+generate:
+  # Генерируем структуры (модели)
+  models: true
+import-mapping:
+  common.yaml: github.com/quickybrains/bankapp/internal/ports/http/common
+output-options:
+  # to make sure that all types are generated
+  skip-prune: true

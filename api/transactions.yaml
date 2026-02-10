@@ -1,0 +1,110 @@
+openapi: 3.0.1
+info:
+  title: Bank app
+  description: |
+    This API allows creating transactions, thus, transferring money from one account to another and retrieving transactions.
+  version: 1.0.0
+paths:
+  /transactions:
+    post:
+      summary: Create new transaction
+      description: |
+        Creates a new transaction with a purpose of transferring money from
+        one account to another one. The balance on the account transferring the money
+        should be sufficient for the transaction to be successful, otherwise it'll be
+        returned with an error.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Req'
+      responses:
+        '200':
+          description: Transaction has been created successfuly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resp'
+        '400':
+          description: Errors relating to issues with amount or balance.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: 'common.yaml#/components/schemas/negativeAmountError'
+                  - $ref: 'common.yaml#/components/schemas/insufficientBalanceError'
+  /transactions/{id}:
+    get:
+      summary: Get the specific transaction by its ID
+      description: |
+        Retrieves the information about specific transaction by provided transaction ID. 
+      parameters:
+      - $ref: 'common.yaml#/components/parameters/idParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resp'
+        '404':
+          description: No transaction found with provided ID.
+          content:
+            application/json:
+              schema:
+                $ref: 'common.yaml#/components/schemas/errorResp'
+components:
+  schemas:
+    Req:
+      description: Transaction request model representing user's request for transferring money from one account to another.
+      type: object
+      properties:
+        fromAccountId:
+          description: An ID of an account money being transferred from. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        toAccountId:
+          description: An ID of an account money being transferred to. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        amount:
+          $ref: 'common.yaml#/components/schemas/amount'
+      required:
+        - fromAccountId
+        - toAccountId
+        - amount
+    Resp:
+      description: Transaction response model is the result of successful transaction creation.
+      type: object
+      properties:
+        id:
+          description: Transaction ID.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        fromAccountId:
+          description: An ID of an account money being transferred from. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        toAccountId:
+          description: An ID of an account money being transferred to. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        amount:
+          $ref: 'common.yaml#/components/schemas/amount'
+        createdAt:
+          $ref: 'common.yaml#/components/schemas/datetime'
+        processedAt:
+          $ref: 'common.yaml#/components/schemas/datetime'
+      required:
+        - id
+        - fromAccountId
+        - toAccountId
+        - amount
+        - createdAt
+        - processedAt

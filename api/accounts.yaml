@@ -1,0 +1,217 @@
+openapi: 3.0.1
+info:
+  title: Bank app
+  description: |
+    This API allows creating accounts and also debiting and withdrawing money from accounts.
+  version: 1.0.0
+paths:
+  /accounts:
+    post:
+      summary: Create new account
+      description: |
+        Creates a new account with provided information about the user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Req'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resp'
+    get:
+      summary: Get all accounts for specific user.
+      description: |
+        Retrieves all accounts created by a specific user with provided user_id.
+      parameters:
+        - name: user_id
+          description: User ID. The UUID format is used.
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountsResp'
+        '404':
+          description: No user found with provided user ID.
+          content:
+            application/json:
+              schema:
+                $ref: 'common.yaml#/components/schemas/errorResp'
+  /accounts/{id}:
+    get:
+      summary: Get the account by account ID
+      description: |
+        Retrieves an account by its ID and returns its balance.
+      parameters:
+      - $ref: 'common.yaml#/components/parameters/idParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resp'
+        '404':
+          description: No account found with provided ID.
+          content:
+            application/json:
+              schema:
+                $ref: 'common.yaml#/components/schemas/errorResp'
+  /accounts/debit:
+     post:
+      summary: Debit money to the specific account
+      description: |
+        Debits the specified amount of money to the specific account. The account must be created at first.
+        Negative amount is not allowed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/debit'
+      responses:
+        # TODO: add an account body to response object
+        '200':
+          description: Money have been debited successfuly.
+        '400':
+          description: Negative amount is prohibited.
+          content:
+            application/json:
+              schema:
+                $ref: 'common.yaml#/components/schemas/errorResp'
+  /accounts/withdraw:
+     post:
+      summary: Withdraw money from the specific account
+      description: |
+        Withdraws the specified amount of money from the specific account. The account must be created at first.
+        The balance must be sufficient for withdrawal to be successful. Otherwise an error will be returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/withdrawal'
+      responses:
+        '200':
+          description: Money have been withdrawn successfuly.
+        '400':
+          description: Errors relating to issues with amount or balance.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: 'common.yaml#/components/schemas/negativeAmountError'
+                  - $ref: 'common.yaml#/components/schemas/insufficientBalanceError'               
+components:
+  schemas:
+    Req:
+      description: An account request model representing user's request for creating an account.
+      type: object
+      properties:
+        userId:
+          description: User ID. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        fullname:
+          type: string
+          description: Name of the account holder.
+          maxLength: 256
+          example: Vasya Pupkin
+        currency:
+          type: string
+          description: Account currency.
+          maxLength: 10
+          example: eur
+        initialDebitAmount:
+          $ref: 'common.yaml#/components/schemas/amount'
+      required:
+        - userId
+        - fullname
+        - currency
+    Resp:
+      description: An account repsonse model is the result of creating new account.
+      type: object
+      properties:
+        id:
+          description: An ID of an account. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        userId:
+          description: User ID. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        fullname:
+          type: string
+          description: Name of the account holder.
+          maxLength: 256
+          example: Vasya Pupkin
+        currency:
+          type: string
+          description: Account currency.
+          maxLength: 10
+          example: eur
+        balance:
+          type: number
+          format: double
+          description: Account balance in real units.
+          example: 214.54
+      required:
+        - id
+        - userId
+        - fullname
+        - currency
+        - balance
+    AccountsResp:
+      description: Model for responding with several accounts.
+      type: array
+      items:
+        $ref: '#/components/schemas/Resp'
+    debit:
+      description: Model representing debited amounts. Negative amount is prohibited.
+      type: object
+      properties:
+        accountId:
+          description: An ID of an account being debited. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        amount:
+          $ref: 'common.yaml#/components/schemas/amount'
+        processedAt:
+          $ref: 'common.yaml#/components/schemas/datetime'
+      required:
+        - accountId
+        - amount
+        - processedAt
+    withdrawal:
+      description: Model representing withdrawing amounts. Negative amount is prohibited.
+      type: object
+      properties:
+        accountId:
+          description: An ID of an account money being withdrawn from. The UUID format is used.
+          type: string
+          format: uuid
+          example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
+        amount:
+          $ref: 'common.yaml#/components/schemas/amount'
+        processedAt:
+          $ref: 'common.yaml#/components/schemas/datetime'
+      required:
+        - accountId
+        - amount
+        - processedAt
