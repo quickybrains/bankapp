@@ -27,7 +27,7 @@ func NewAccountsRepo(db db.CommonDB, conf *db.Config, log log.Logger) *accountsR
 func (repo *accountsRepo) CreateAccount(account *domain.Account) error {
 	query := `
 	insert into
-		accounts (id, fullname, balance, created_at)
+		accounts (id, user_id, fullname, currency, balance, created_at)
 	values
 		($1, $2, $3, $4)
 	`
@@ -38,10 +38,12 @@ func (repo *accountsRepo) CreateAccount(account *domain.Account) error {
 	_, err := repo.db.ExecContext(
 		ctx,
 		query,
-		account.ID.String(),
+		account.ID,
+		account.UserID,
 		account.Fullname,
+		account.Currency,
 		account.Balance,
-		time.Now().Unix(),
+		time.Now().UTC().Unix(),
 	)
 	if err != nil {
 		return fmt.Errorf("repo db exec context, err=%w", err)
