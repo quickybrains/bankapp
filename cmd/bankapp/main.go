@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -14,6 +15,8 @@ func main() {
 	confPath := flag.String("c", "./config/config.yaml", "path to config file")
 
 	flag.Parse()
+
+	fmt.Println("app started with config path", *confPath)
 
 	config, err := app.NewConfig(*confPath)
 	if err != nil {

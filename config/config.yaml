@@ -1,12 +1,16 @@
 http:
-  host: localhost
   port: 8080
 db:
-  host: localhost
+  host: postgres
   port: 5432
   user: quicky
   password: 123
   dbName: bank
+notifier:
+  host: rabbitmq
+  port: 5672
+  user: guest
+  password: guest
 log:
   filename: ./log
   maxSize: 500

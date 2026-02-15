@@ -11,8 +11,10 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /bankapp ./cmd/bankapp
 RUN chmod +x /bankapp
 
+COPY ./config/config.yaml /config.yaml
+
 ENV APP_PORT=8080
 
 EXPOSE $APP_PORT
 
-ENTRYPOINT [ "/bankapp" ]
+ENTRYPOINT [ "/bankapp", "-c", "./config/config.yaml" ]
