@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: 123
       PGDATA: /var/lib/postgresql/data
     volumes:
-      - bank-db-data:/var/lib/postgresql/data
+      - ./bank-db-data:/var/lib/postgresql/data
     ports:
       - 5432:5432
     networks:
@@ -40,8 +40,8 @@ services:
     networks:
       - app-net
     volumes:
-      - rabbitmq-lib:/var/lib/rabbitmq/
-      - rabbitmq-log:/var/log/rabbitmq
+      - ./rabbitmq-lib:/var/lib/rabbitmq/
+      - ./rabbitmq-log:/var/log/rabbitmq
     healthcheck:
         test: ["CMD", "curl", "-f", "http://localhost:5672"]
         interval: 10s
@@ -56,3 +56,4 @@ volumes:
 
 networks:
   app-net:
+    external: true
