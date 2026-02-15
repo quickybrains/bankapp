@@ -17,11 +17,27 @@ type Config struct {
 }
 
 func (c *Config) DSN() string {
+	if c.Host == "" {
+		c.Host = defaultHost
+	}
+
+	if c.Port == 0 {
+		c.Port = defaultPort
+	}
+
+	if c.User == "" {
+		c.User = defaultUser
+	}
+
+	if c.Password == "" {
+		c.Password = defaultPassword
+	}
+
 	return fmt.Sprintf(
 		"amqp://%s:%s@%s:%v/",
-		defaultUser,
-		defaultPassword,
-		defaultHost,
-		defaultPort,
+		c.User,
+		c.Password,
+		c.Host,
+		c.Port,
 	)
 }

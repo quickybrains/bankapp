@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	defaultPath             string = "localhost"
+	defaultPath             string = ""
 	defaultPort             int    = 8080
 	defaultReadTimeoutInMs  int    = 1000
 	defaultWriteTimeoutInMs int    = 1000
@@ -14,45 +14,45 @@ const (
 )
 
 type Config struct {
-	Path             string `yaml:"host"`
-	Port             int    `yaml:"port"`
-	ReadTimeoutInMs  int    `yaml:"readTimeout"`
-	WriteTimeoutInMs int    `yaml:"writeTimeout"`
-	ReqBodyLimit     int64  `yaml:"bodyLimit"`
+	path             string `yaml:"host"`
+	port             int    `yaml:"port"`
+	readTimeoutInMs  int    `yaml:"readTimeout"`
+	writeTimeoutInMs int    `yaml:"writeTimeout"`
+	reqBodyLimit     int64  `yaml:"bodyLimit"`
 }
 
 func (c *Config) ServerURL() string {
-	if c.Path == "" {
-		c.Path = defaultPath
+	if c.path == "" {
+		c.path = defaultPath
 	}
 
-	if c.Port == 0 {
-		c.Port = defaultPort
+	if c.port == 0 {
+		c.port = defaultPort
 	}
 
-	return fmt.Sprintf("%s:%v", c.Path, c.Port)
+	return fmt.Sprintf("%s:%v", c.path, c.port)
 }
 
 func (c *Config) ReadTimeout() time.Duration {
-	if c.ReadTimeoutInMs == 0 {
-		c.ReadTimeoutInMs = defaultReadTimeoutInMs
+	if c.readTimeoutInMs == 0 {
+		c.readTimeoutInMs = defaultReadTimeoutInMs
 	}
 
-	return time.Duration(c.ReadTimeoutInMs) * time.Millisecond
+	return time.Duration(c.readTimeoutInMs) * time.Millisecond
 }
 
 func (c *Config) WriteTimeout() time.Duration {
-	if c.WriteTimeoutInMs == 0 {
-		c.WriteTimeoutInMs = defaultWriteTimeoutInMs
+	if c.writeTimeoutInMs == 0 {
+		c.writeTimeoutInMs = defaultWriteTimeoutInMs
 	}
 
-	return time.Duration(c.WriteTimeoutInMs) * time.Millisecond
+	return time.Duration(c.writeTimeoutInMs) * time.Millisecond
 }
 
 func (c *Config) HTTPReqBodyLimit() int64 {
-	if c.ReqBodyLimit < defaultReqBodyLimit {
+	if c.reqBodyLimit < defaultReqBodyLimit {
 		return defaultReqBodyLimit
 	}
 
-	return c.ReqBodyLimit
+	return c.reqBodyLimit
 }
