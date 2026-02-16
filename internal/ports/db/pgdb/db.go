@@ -24,7 +24,10 @@ func NewPGDB(config *db.Config, lg log.Logger) (*pgDB, error) {
 		lg:     lg,
 	}
 
-	db.init()
+	err := db.init()
+	if err != nil {
+		return nil, fmt.Errorf("db init, err=%w", err)
+	}
 
 	return db, nil
 }
@@ -38,7 +41,7 @@ func (db *pgDB) QueryRowContext(ctx context.Context, query string, args ...any) 
 }
 
 func (db *pgDB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	return db.db.QueryContext(ctx, query)
+	return db.db.QueryContext(ctx, query, args...)
 }
 
 func (db *pgDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
@@ -68,6 +71,11 @@ func (db *pgDB) init() error {
 	}
 
 	db.db = stdlib.OpenDBFromPool(pool)
+
+	var testOne int
+	if err := db.db.QueryRow("select 1").Scan(&testOne); err != nil {
+		return fmt.Errorf("db ping, err=%w", err)
+	}
 
 	db.lg.Info().Print("db connected")
 
