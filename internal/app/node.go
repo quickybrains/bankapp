@@ -8,7 +8,9 @@ import (
 	"github.com/quickybrains/bankapp/internal/adapters"
 	"github.com/quickybrains/bankapp/internal/ports/db/pgdb"
 	accountshttp "github.com/quickybrains/bankapp/internal/ports/http/accounts"
+	accounts_middleware "github.com/quickybrains/bankapp/internal/ports/http/accounts/middleware"
 	transactionshttp "github.com/quickybrains/bankapp/internal/ports/http/transactions"
+	transactions_middleware "github.com/quickybrains/bankapp/internal/ports/http/transactions/middleware"
 	"github.com/quickybrains/bankapp/internal/ports/log"
 	"github.com/quickybrains/bankapp/internal/ports/log/zerolog"
 	"github.com/quickybrains/bankapp/internal/ports/notifier/rabbitmq"
@@ -64,13 +66,25 @@ func StartNewNode(config *Config) (*Node, error) {
 	transactionsHandler := transactionshttp.NewHandler(
 		transactionsService,
 		config.HTTP,
-		logger.With("component", "accounts_http_handler"),
+		logger.With("component", "transactions_http_handler"),
 	)
 
 	mx := http.NewServeMux()
 
-	accountshttp.HandlerFromMux(accountsHandler, mx)
-	transactionshttp.HandlerFromMux(transactionsHandler, mx)
+	accountshttp.HandlerWithOptions(accountsHandler, accountshttp.StdHTTPServerOptions{
+		BaseRouter: mx,
+		Middlewares: []accountshttp.MiddlewareFunc{
+			accounts_middleware.Logging(logger.With("component", "logging_middleware")),
+			accounts_middleware.Limit(logger.With("component", "limit_middleware"), config.HTTP.HTTPReqBodyLimit()),
+		},
+	})
+	transactionshttp.HandlerWithOptions(transactionsHandler, transactionshttp.StdHTTPServerOptions{
+		BaseRouter: mx,
+		Middlewares: []transactionshttp.MiddlewareFunc{
+			transactions_middleware.Logging(logger.With("component", "logging_middleware")),
+			transactions_middleware.Limit(logger.With("component", "limit_middleware"), config.HTTP.HTTPReqBodyLimit()),
+		},
+	})
 
 	srv := &http.Server{
 		Addr:         config.HTTP.ServerURL(),
