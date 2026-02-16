@@ -1,0 +1,8 @@
+bin/*
+.vscode/*
+log
+testlog
+*.json
+docker/rabbitmq-lib/*
+docker/rabbitmq-log/*
+docker/bank-db-data/*
