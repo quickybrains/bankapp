@@ -1,9 +1,11 @@
 create table if not exists transactions (
   id uuid primary key,
-  from_account_id uuid not null,
-  to_account_id uuid not null,
+  from_account_id uuid not null references accounts(id),
+  to_account_id uuid not null references accounts(id),
   amount double precision not null check (amount > 0),
-  descr varchar(100)
+  descr varchar(100),
+  created_at timestamp not null,
+  processed_at timestamp not null
 );
 
 create index if not exists from_account_id_idx on transactions using hash (from_account_id);

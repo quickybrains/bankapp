@@ -3,7 +3,8 @@ create table if not exists accounts (
   user_id uuid not null,
   fullname varchar(100),
   currency varchar(10),
-  balance double precision not null
+  balance double precision not null check (balance >= 0),
+  created_at timestamp not null
 );
 
 create index if not exists accounts_user_id_idx on accounts using hash (user_id);
