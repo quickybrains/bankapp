@@ -15,14 +15,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Req'
+              $ref: '#/components/schemas/AccountReq'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Resp'
+                $ref: '#/components/schemas/AccountResp'
     get:
       summary: Get all accounts for specific user.
       description: |
@@ -62,7 +62,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Resp'
+                $ref: '#/components/schemas/AccountResp'
         '404':
           description: No account found with provided ID.
           content:
@@ -73,7 +73,8 @@ paths:
      post:
       summary: Debit money to the specific account
       description: |
-        Debits the specified amount of money to the specific account. The account must be created at first.
+        Debits the specified amount of money to the specific account.
+        The account must exist at this point.
         Negative amount is not allowed.
       requestBody:
         required: true
@@ -82,15 +83,18 @@ paths:
             schema:
               $ref: '#/components/schemas/debit'
       responses:
-        # TODO: add an account body to response object
         '200':
           description: Money have been debited successfuly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResp'
         '400':
           description: Negative amount is prohibited.
           content:
             application/json:
               schema:
-                $ref: 'common.yaml#/components/schemas/errorResp'
+                $ref: 'common.yaml#/components/schemas/negativeAmountError'
   /accounts/withdraw:
      post:
       summary: Withdraw money from the specific account
@@ -106,6 +110,10 @@ paths:
       responses:
         '200':
           description: Money have been withdrawn successfuly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResp'
         '400':
           description: Errors relating to issues with amount or balance.
           content:
@@ -116,7 +124,7 @@ paths:
                   - $ref: 'common.yaml#/components/schemas/insufficientBalanceError'               
 components:
   schemas:
-    Req:
+    AccountReq:
       description: An account request model representing user's request for creating an account.
       type: object
       properties:
@@ -141,7 +149,7 @@ components:
         - userId
         - fullname
         - currency
-    Resp:
+    AccountResp:
       description: An account repsonse model is the result of creating new account.
       type: object
       properties:
@@ -180,7 +188,7 @@ components:
       description: Model for responding with several accounts.
       type: array
       items:
-        $ref: '#/components/schemas/Resp'
+        $ref: '#/components/schemas/AccountResp'
     debit:
       description: Model representing debited amounts. Negative amount is prohibited.
       type: object
@@ -192,12 +200,9 @@ components:
           example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
         amount:
           $ref: 'common.yaml#/components/schemas/amount'
-        processedAt:
-          $ref: 'common.yaml#/components/schemas/datetime'
       required:
         - accountId
         - amount
-        - processedAt
     withdrawal:
       description: Model representing withdrawing amounts. Negative amount is prohibited.
       type: object
@@ -209,9 +214,6 @@ components:
           example: 8be4df61-93ca-11d2-aa0d-00e098032b8c
         amount:
           $ref: 'common.yaml#/components/schemas/amount'
-        processedAt:
-          $ref: 'common.yaml#/components/schemas/datetime'
       required:
         - accountId
         - amount
-        - processedAt
