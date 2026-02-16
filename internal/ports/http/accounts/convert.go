@@ -19,7 +19,7 @@ func fromAccountReqToDomainAccount(req *AccountReq) (*domain.Account, error) {
 	}
 
 	if initAmount < 0 {
-		return nil, domain.ErrNegativeAmount
+		return nil, domain.ErrNegativeAmount(initAmount)
 	}
 
 	return &domain.Account{

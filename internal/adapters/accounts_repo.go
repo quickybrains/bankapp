@@ -2,6 +2,8 @@ package adapters
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -73,6 +75,10 @@ func (repo *accountsRepo) GetAccountByID(id domain.AccountID) (*domain.Account, 
 	row := repo.db.QueryRowContext(ctx, query, id)
 	err := row.Scan(&account.ID, &account.UserID, &account.Fullname, &account.Balance)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNoAccountWithID(id)
+		}
+
 		return nil, fmt.Errorf("repo db row scan, err=%w", err)
 	}
 
@@ -91,6 +97,10 @@ func (repo *accountsRepo) GetAccountsByUserID(user_id domain.UserID) ([]*domain.
 
 	rows, err := repo.db.QueryContext(ctx, query, user_id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNoAccountsForUserID(user_id)
+		}
+
 		return nil, fmt.Errorf("repo query context, err=%w", err)
 	}
 
@@ -110,6 +120,10 @@ func (repo *accountsRepo) GetAccountsByUserID(user_id domain.UserID) ([]*domain.
 		accounts = append(accounts, &account)
 	}
 
+	if len(accounts) == 0 {
+		return nil, domain.ErrNoAccountsForUserID(user_id)
+	}
+
 	return accounts, nil
 }
 
@@ -122,7 +136,6 @@ func (repo *accountsRepo) DebitOnAccountWithFn(
 	checkFn checkBalanceFn,
 	onChangeFn balanceChangedFn,
 ) (*domain.Account, error) {
-	// Checking balance first
 	account, err := repo.GetAccountByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("get account by id, err=%w", err)
@@ -192,7 +205,6 @@ func (repo *accountsRepo) WithdrawFromAccountWithFn(
 		return nil, fmt.Errorf("repo get account by id, err=%w", err)
 	}
 
-	// Check balance by calling checkBalanceFn
 	err = checkFn(account)
 	if err != nil {
 		return nil, fmt.Errorf("check balance fn, err=%w", err)

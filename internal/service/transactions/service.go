@@ -46,8 +46,12 @@ func (s *Service) CreateTransaction(transaction *domain.Transaction) error {
 		context.Background(),
 		transaction,
 		func(account *domain.Account) error {
+			if transaction.Amount < 0 {
+				return domain.ErrNegativeAmount(transaction.Amount)
+			}
+
 			if account.Balance < transaction.Amount {
-				return domain.ErrInsufficientFunds
+				return domain.ErrInsufficientFunds()
 			}
 
 			return nil

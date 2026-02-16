@@ -39,7 +39,7 @@ func (handler *HTTPHandler) PostTransactions(w nethttp.ResponseWriter, r *nethtt
 		return
 	}
 
-	data, err := io.ReadAll(io.LimitReader(r.Body, handler.conf.ReqBodyLimit))
+	data, err := io.ReadAll(io.LimitReader(r.Body, handler.conf.HTTPReqBodyLimit()))
 	if err != nil {
 		handler.log.Error().Print("io limit read")
 

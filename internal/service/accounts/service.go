@@ -81,7 +81,7 @@ func (s *Service) DebitOnAccount(id domain.AccountID, money float64) (*domain.Ac
 		money,
 		func(account *domain.Account) error {
 			if money < 0 {
-				return domain.ErrNegativeAmount
+				return domain.ErrNegativeAmount(money)
 			}
 
 			return nil
@@ -108,12 +108,12 @@ func (s *Service) WithdrawFromAccount(id domain.AccountID, money float64) (*doma
 		money,
 		func(account *domain.Account) error {
 			if money < 0 {
-				return domain.ErrNegativeAmount
+				return domain.ErrNegativeAmount(money)
 			}
 
 			// Checking that account has sufficient funds
 			if account.Balance < money {
-				return domain.ErrInsufficientFunds
+				return domain.ErrInsufficientFunds()
 			}
 
 			return nil

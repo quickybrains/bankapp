@@ -3,7 +3,9 @@ package adapters
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/quickybrains/bankapp/internal/domain"
 	"github.com/quickybrains/bankapp/internal/ports/db"
@@ -53,25 +55,25 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 	}
 
 	withdrawQuery := `
-	update account
+	update accounts
 	set
 		balance = balance - $1
 	where
 		id = $2
 	returning
-		old.balance as old_balance,
-		new.balance as new_balance
+		balance + $1 as old_balance,
+		balance as new_balance
 	`
 
 	debitQuery := `
-	update account
+	update accounts
 	set
 		balance = balance + $1
 	where
 		id = $2
 	returning
-		old.balance as old_balance,
-		new.balance as new_balance
+		balance - $1 as old_balance,
+		balance as new_balance
 	`
 
 	row := tx.QueryRowContext(ctx, withdrawQuery, transaction.Amount, transaction.FromAccountID)
@@ -82,6 +84,10 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 		rollbackErr := tx.Rollback()
 		if rollbackErr != nil {
 			repo.log.Err(rollbackErr).Print("tx rollback")
+		}
+
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ErrNoAccountWithID(transaction.FromAccountID)
 		}
 
 		return fmt.Errorf("repo db row scan updated from account balance, err=%w", err)
@@ -96,7 +102,49 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 			repo.log.Err(rollbackErr).Print("tx rollback")
 		}
 
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ErrNoAccountWithID(transaction.ToAccountID)
+		}
+
 		return fmt.Errorf("repo db row scan updated to account balance, err=%w", err)
+	}
+
+	// Once we've dealt with accounts' balances we can insert the transaction itself
+	txQuery := `
+	insert into
+  		transactions (
+			id,
+			from_account_id,
+			to_account_id,
+			amount,
+			descr,
+			created_at,
+			processed_at
+  		)
+	values
+  		($1, $2, $3, $4, $5, $6, $7)
+	`
+
+	transaction.ProcessedAt = time.Now().UTC()
+
+	_, err = tx.ExecContext(
+		ctx,
+		txQuery,
+		transaction.ID,
+		transaction.FromAccountID,
+		transaction.ToAccountID,
+		transaction.Amount,
+		transaction.Description,
+		transaction.CreatedAt,
+		transaction.ProcessedAt,
+	)
+	if err != nil {
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			repo.log.Err(rollbackErr).Print("tx rollback")
+		}
+
+		return fmt.Errorf("repo db tx exec create transaction query, err=%w", err)
 	}
 
 	err = tx.Commit()
@@ -120,8 +168,8 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 
 	balanceFn(&domain.AccountBalanceChangedMsg{
 		AccountID:       transaction.ToAccountID,
-		PreviousBalance: fromOldBalance,
-		CurrentBalance:  fromNewBalance,
+		PreviousBalance: toOldBalance,
+		CurrentBalance:  toNewBalance,
 	})
 
 	return nil
@@ -157,6 +205,10 @@ func (repo *transactionsRepo) GetTransactionByID(
 		&tx.ProcessedAt,
 	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNoTransactionWithID(id)
+		}
+
 		return nil, fmt.Errorf("repo db row scan, err=%w", err)
 	}
 
@@ -168,6 +220,7 @@ func (repo *transactionsRepo) getAccountWithTx(tx *sql.Tx, ctx context.Context, 
 	select
 		id,
 		fullname,
+		currency,
 		balance
 	from
 		accounts
@@ -178,11 +231,10 @@ func (repo *transactionsRepo) getAccountWithTx(tx *sql.Tx, ctx context.Context, 
 	row := tx.QueryRowContext(ctx, getAccountQuery, id)
 
 	var account domain.Account
-	err := row.Scan(&account.ID, &account.Fullname, &account.Balance)
+	err := row.Scan(&account.ID, &account.Fullname, &account.Currency, &account.Balance)
 	if err != nil {
-		rollbackErr := tx.Rollback()
-		if rollbackErr != nil {
-			repo.log.Err(rollbackErr).Print("tx rollback")
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNoAccountWithID(id)
 		}
 
 		return nil, fmt.Errorf("repo db row scan, err=%w", err)

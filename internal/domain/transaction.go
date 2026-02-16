@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type TransactionID = uuid.UUID
 
@@ -17,9 +21,11 @@ type Transaction struct {
 	// Amount Amount model used for debiting/withdrawal/transferring money. Negative amount is prohibited.
 	Amount float64 `json:"amount"`
 
+	Description string `json:"description"`
+
 	// CreatedAt Unix timestamp (seconds or milliseconds since the Unix epoch)
-	CreatedAt int64 `json:"createdAt"`
+	CreatedAt time.Time `json:"createdAt"`
 
 	// ProcessedAt Unix timestamp (seconds or milliseconds since the Unix epoch)
-	ProcessedAt int64 `json:"processedAt"`
+	ProcessedAt time.Time `json:"processedAt"`
 }

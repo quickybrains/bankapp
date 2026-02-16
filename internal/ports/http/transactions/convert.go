@@ -15,7 +15,7 @@ func fromTransactionReqToDomainTransaction(reqTx *Req) (*domain.Transaction, err
 	}
 
 	if reqTx.Amount < 0 {
-		return nil, domain.ErrNegativeAmount
+		return nil, domain.ErrNegativeAmount(reqTx.Amount)
 	}
 
 	return &domain.Transaction{
@@ -23,6 +23,6 @@ func fromTransactionReqToDomainTransaction(reqTx *Req) (*domain.Transaction, err
 		FromAccountID: reqTx.FromAccountId,
 		ToAccountID:   reqTx.ToAccountId,
 		Amount:        reqTx.Amount,
-		CreatedAt:     time.Now().Unix(),
+		CreatedAt:     time.Now().UTC(),
 	}, nil
 }

@@ -25,25 +25,25 @@ type loggingMiddleware struct {
 }
 
 func (lw *loggingMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	lw.lg.Info().Print("Request headers params:")
+
+	headers := r.Header.Clone()
+	for k, v := range headers {
+		lw.lg.With(k, strings.Join(v, ", ")).Info().Print("")
+	}
+
+	lw.lg.Info().Print("Request query params:")
+
+	params := r.URL.Query()
+	for k, v := range params {
+		lw.lg.With(k, strings.Join(v, ", ")).Info().Print("")
+	}
+
 	if r.Body != nil {
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			lw.lg.Err(err).Print("io read all")
 			return
-		}
-
-		lw.lg.Info().Print("Request headers params:")
-
-		headers := r.Header.Clone()
-		for k, v := range headers {
-			lw.lg.With(k, strings.Join(v, ", ")).Info().Print("")
-		}
-
-		lw.lg.Info().Print("Request query params:")
-
-		params := r.URL.Query()
-		for k, v := range params {
-			lw.lg.With(k, strings.Join(v, ", ")).Info().Print("")
 		}
 
 		lw.lg.With("request_body", string(data)).Info().Print("")
@@ -55,7 +55,7 @@ func (lw *loggingMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		r.Body = io.NopCloser(bytes.NewBuffer(data))
 		r.ContentLength = int64(len(data))
-
-		lw.in.ServeHTTP(w, r)
 	}
+
+	lw.in.ServeHTTP(w, r)
 }
