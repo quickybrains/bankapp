@@ -12,7 +12,7 @@ notifier:
   user: guest
   password: guest
 log:
-  filename: ./log
+  filename: ./log.log
   maxSize: 500
   maxBackups: 3
   maxAge: 28,
