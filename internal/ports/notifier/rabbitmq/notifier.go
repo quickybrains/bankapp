@@ -47,9 +47,13 @@ func (notifier *rabbitMQNotifier) NotifyBalanceChanged(ctx context.Context, mess
 		false,        // mandatory
 		false,        // immediate
 		amqp.Publishing{
-			ContentType: "application/json:",
+			ContentType: "application/json",
 			Body:        []byte(data),
-		})
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("amqp publish with context, err=%w", err)
+	}
 
 	return nil
 }
@@ -69,7 +73,9 @@ func (notifier *rabbitMQNotifier) init() error {
 		return fmt.Errorf("amqp conn channel, err=%w", err)
 	}
 
-	err = ch.ExchangeDeclare(
+	notifier.amqpCh = ch
+
+	err = notifier.amqpCh.ExchangeDeclare(
 		exchangeName,
 		amqp.ExchangeFanout,
 		true,

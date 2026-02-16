@@ -25,6 +25,8 @@ func StartNewConsumer(conf *notifier.Config, log log.Logger) (*rabbitMQConsumer,
 	consumer := &rabbitMQConsumer{
 		config: conf,
 		log:    log,
+
+		stopCh: make(chan struct{}, 1),
 	}
 
 	err := consumer.init()
@@ -47,9 +49,13 @@ func (consumer *rabbitMQConsumer) Stop() error {
 }
 
 func (consumer *rabbitMQConsumer) init() error {
-	conn, err := amqp.Dial("")
+	addr := consumer.config.DSN()
+
+	consumer.log.With("addr", addr).Info().Print("Connecting to rabbitmq")
+
+	conn, err := amqp.Dial(addr)
 	if err != nil {
-		return fmt.Errorf("amqp dial, err=%w", err)
+		return fmt.Errorf("amqp dial, addr=%s, err=%w", addr, err)
 	}
 
 	ch, err := conn.Channel()
@@ -103,6 +109,8 @@ func (consumer *rabbitMQConsumer) init() error {
 		nil,    // args
 	)
 
+	consumer.log.With("addr", addr).Info().Print("Consumer started")
+
 	return nil
 }
 
@@ -121,6 +129,7 @@ func (consumer *rabbitMQConsumer) consumeLoop() {
 			}
 			consumer.log.Info().Print(msg.String())
 		case <-consumer.stopCh:
+			consumer.log.Info().Print("Stopping consumer on signal")
 			return
 		}
 	}
