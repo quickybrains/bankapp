@@ -40,7 +40,7 @@ func (handler *HTTPHandler) PostAccounts(w nethttp.ResponseWriter, r *nethttp.Re
 		return
 	}
 
-	data, err := io.ReadAll(io.LimitReader(r.Body, handler.conf.ReqBodyLimit))
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		handler.log.Error().Print("io limit read")
 
@@ -49,10 +49,10 @@ func (handler *HTTPHandler) PostAccounts(w nethttp.ResponseWriter, r *nethttp.Re
 		return
 	}
 
-	accountReq := &Req{}
+	accountReq := &AccountReq{}
 	err = json.Unmarshal(data, accountReq)
 	if err != nil {
-		handler.log.Err(err).Print("json unmarshal account request")
+		handler.log.With("data", string(data)).Err(err).Print("json unmarshal account request")
 
 		respondWithStatus(w, nethttp.StatusBadRequest, nil)
 
@@ -157,10 +157,9 @@ func (handler *HTTPHandler) PostAccountsDebit(w nethttp.ResponseWriter, r *netht
 		return
 	}
 
-	// TODO: config limit
-	data, err := io.ReadAll(io.LimitReader(r.Body, 5126))
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
-		handler.log.Error().Print("io limit read")
+		handler.log.Error().Print("io read all")
 
 		respondWithStatus(w, nethttp.StatusInternalServerError, nil)
 
@@ -170,14 +169,14 @@ func (handler *HTTPHandler) PostAccountsDebit(w nethttp.ResponseWriter, r *netht
 	debitReq := &Debit{}
 	err = json.Unmarshal(data, debitReq)
 	if err != nil {
-		handler.log.Err(err).Print("json unmarshal debit request")
+		handler.log.With("data", string(data)).Err(err).Print("json unmarshal debit request")
 
 		respondWithStatus(w, nethttp.StatusBadRequest, nil)
 
 		return
 	}
 
-	err = handler.service.DebitOnAccount(debitReq.AccountId, debitReq.Amount)
+	account, err := handler.service.DebitOnAccount(debitReq.AccountId, debitReq.Amount)
 	if err != nil {
 		handler.log.Err(err).Print("service debit on account")
 
@@ -186,7 +185,19 @@ func (handler *HTTPHandler) PostAccountsDebit(w nethttp.ResponseWriter, r *netht
 		return
 	}
 
-	respondWithStatus(w, nethttp.StatusOK, nil)
+	data, err = json.Marshal(account)
+	if err != nil {
+		handler.log.
+			Err(err).
+			String("account_id", account.ID.String()).
+			Print("json marshal")
+
+		respondWithStatus(w, nethttp.StatusInternalServerError, nil)
+
+		return
+	}
+
+	respondWithStatus(w, nethttp.StatusOK, data)
 }
 
 func (handler *HTTPHandler) PostAccountsWithdraw(w nethttp.ResponseWriter, r *nethttp.Request) {
@@ -198,8 +209,7 @@ func (handler *HTTPHandler) PostAccountsWithdraw(w nethttp.ResponseWriter, r *ne
 		return
 	}
 
-	// TODO: config limit
-	data, err := io.ReadAll(io.LimitReader(r.Body, 5126))
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		handler.log.Error().Print("io limit read")
 
@@ -211,14 +221,14 @@ func (handler *HTTPHandler) PostAccountsWithdraw(w nethttp.ResponseWriter, r *ne
 	withdrawReq := &Withdrawal{}
 	err = json.Unmarshal(data, withdrawReq)
 	if err != nil {
-		handler.log.Err(err).Print("json unmarshal withdraw request")
+		handler.log.With("data", string(data)).Err(err).Print("json unmarshal withdraw request")
 
 		respondWithStatus(w, nethttp.StatusBadRequest, nil)
 
 		return
 	}
 
-	err = handler.service.WithdrawFromAccount(withdrawReq.AccountId, withdrawReq.Amount)
+	account, err := handler.service.WithdrawFromAccount(withdrawReq.AccountId, withdrawReq.Amount)
 	if err != nil {
 		handler.log.Err(err).Print("service withdraw from account")
 
@@ -227,5 +237,17 @@ func (handler *HTTPHandler) PostAccountsWithdraw(w nethttp.ResponseWriter, r *ne
 		return
 	}
 
-	respondWithStatus(w, nethttp.StatusOK, nil)
+	data, err = json.Marshal(account)
+	if err != nil {
+		handler.log.
+			Err(err).
+			String("account_id", account.ID.String()).
+			Print("json marshal")
+
+		respondWithStatus(w, nethttp.StatusInternalServerError, nil)
+
+		return
+	}
+
+	respondWithStatus(w, nethttp.StatusOK, data)
 }

@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -40,8 +41,9 @@ func respondWithStatusAndError(w http.ResponseWriter, status int, resErr error) 
 }
 
 func handleError(err error, w http.ResponseWriter, data []byte) error {
-	if domain.IsDomainError(err) {
-		return respondWithStatusAndError(w, http.StatusBadRequest, err)
+	var domainErr *domain.PublicError
+	if errors.As(err, &domainErr) {
+		return respondWithStatusAndError(w, http.StatusBadRequest, domainErr)
 	}
 
 	return respondWithStatus(w, http.StatusInternalServerError, data)

@@ -7,7 +7,7 @@ import (
 	"github.com/quickybrains/bankapp/internal/domain"
 )
 
-func fromAccountReqToDomainAccount(req *Req) (*domain.Account, error) {
+func fromAccountReqToDomainAccount(req *AccountReq) (*domain.Account, error) {
 	accountID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, fmt.Errorf("uuid new random, err=%w", err)
@@ -24,6 +24,7 @@ func fromAccountReqToDomainAccount(req *Req) (*domain.Account, error) {
 
 	return &domain.Account{
 		ID:       accountID,
+		UserID:   req.UserId,
 		Fullname: req.Fullname,
 		Currency: req.Currency,
 		Balance:  initAmount,

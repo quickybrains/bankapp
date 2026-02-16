@@ -16,13 +16,18 @@ type accountsRepo interface {
 	GetAccountByID(id domain.AccountID) (*domain.Account, error)
 	GetAccountsByUserID(id domain.UserID) ([]*domain.Account, error)
 
-	DebitOnAccountWithFn(id domain.AccountID, money float64, fn balanceChangedFn) error
+	DebitOnAccountWithFn(
+		id domain.AccountID,
+		money float64,
+		checkBalanceFn checkBalanceFn,
+		fn balanceChangedFn,
+	) (*domain.Account, error)
 	WithdrawFromAccountWithFn(
 		id domain.AccountID,
 		money float64,
 		checkBalanceFn checkBalanceFn,
 		balanceFn balanceChangedFn,
-	) error
+	) (*domain.Account, error)
 }
 
 type balanceChangedNotifier interface {
@@ -70,27 +75,42 @@ func (s *Service) GetAccountsByUserID(id domain.UserID) ([]*domain.Account, erro
 	return accounts, nil
 }
 
-func (s *Service) DebitOnAccount(id domain.AccountID, money float64) error {
-	err := s.repo.DebitOnAccountWithFn(id, money, func(msg *domain.AccountBalanceChangedMsg) {
-		// TODO: context
-		// Notifying on changing balance
-		err := s.notifier.NotifyBalanceChanged(context.Background(), msg)
-		if err != nil {
-			s.log.Err(err).Print("notify balance changed")
-		}
-	})
-	if err != nil {
-		return fmt.Errorf("repo debit on account, id=%v, err=%w", id, err)
-	}
-
-	return nil
-}
-
-func (s *Service) WithdrawFromAccount(id domain.AccountID, money float64) error {
-	err := s.repo.WithdrawFromAccountWithFn(
+func (s *Service) DebitOnAccount(id domain.AccountID, money float64) (*domain.Account, error) {
+	account, err := s.repo.DebitOnAccountWithFn(
 		id,
 		money,
 		func(account *domain.Account) error {
+			if money < 0 {
+				return domain.ErrNegativeAmount
+			}
+
+			return nil
+		},
+		func(msg *domain.AccountBalanceChangedMsg) {
+			// TODO: context
+			// Notifying on changing balance
+			err := s.notifier.NotifyBalanceChanged(context.Background(), msg)
+			if err != nil {
+				s.log.Err(err).Print("notify balance changed")
+			}
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("repo debit on account, id=%v, err=%w", id, err)
+	}
+
+	return account, nil
+}
+
+func (s *Service) WithdrawFromAccount(id domain.AccountID, money float64) (*domain.Account, error) {
+	account, err := s.repo.WithdrawFromAccountWithFn(
+		id,
+		money,
+		func(account *domain.Account) error {
+			if money < 0 {
+				return domain.ErrNegativeAmount
+			}
+
 			// Checking that account has sufficient funds
 			if account.Balance < money {
 				return domain.ErrInsufficientFunds
@@ -107,8 +127,8 @@ func (s *Service) WithdrawFromAccount(id domain.AccountID, money float64) error 
 			}
 		})
 	if err != nil {
-		return fmt.Errorf("repo withdraw from account, id=%v, err=%w", id, err)
+		return nil, fmt.Errorf("repo withdraw from account, id=%v, err=%w", id, err)
 	}
 
-	return nil
+	return account, nil
 }

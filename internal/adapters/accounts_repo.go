@@ -29,7 +29,7 @@ func (repo *accountsRepo) CreateAccount(account *domain.Account) error {
 	insert into
 		accounts (id, user_id, fullname, currency, balance, created_at)
 	values
-		($1, $2, $3, $4)
+		($1, $2, $3, $4, $5, $6)
 	`
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
@@ -43,7 +43,7 @@ func (repo *accountsRepo) CreateAccount(account *domain.Account) error {
 		account.Fullname,
 		account.Currency,
 		account.Balance,
-		time.Now().UTC().Unix(),
+		time.Now().UTC(),
 	)
 	if err != nil {
 		return fmt.Errorf("repo db exec context, err=%w", err)
@@ -70,7 +70,7 @@ func (repo *accountsRepo) GetAccountByID(id domain.AccountID) (*domain.Account, 
 	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
 	defer cancelFn()
 
-	row := repo.db.QueryRowContext(ctx, query)
+	row := repo.db.QueryRowContext(ctx, query, id)
 	err := row.Scan(&account.ID, &account.UserID, &account.Fullname, &account.Balance)
 	if err != nil {
 		return nil, fmt.Errorf("repo db row scan, err=%w", err)
@@ -79,23 +79,17 @@ func (repo *accountsRepo) GetAccountByID(id domain.AccountID) (*domain.Account, 
 	return &account, nil
 }
 
-func (repo *accountsRepo) GetAccountsByUserID(id domain.UserID) ([]*domain.Account, error) {
+func (repo *accountsRepo) GetAccountsByUserID(user_id domain.UserID) ([]*domain.Account, error) {
 	query := `
-	select
-		id,
-		user_id,
-		fullname,
-		balance
-	from
-		accounts
-	where
-		user_id = $1
+	select id, user_id, fullname, balance 
+	from accounts 
+	where user_id = $1
 	`
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
 	defer cancelFn()
 
-	rows, err := repo.db.QueryContext(ctx, query, id)
+	rows, err := repo.db.QueryContext(ctx, query, user_id)
 	if err != nil {
 		return nil, fmt.Errorf("repo query context, err=%w", err)
 	}
@@ -119,13 +113,26 @@ func (repo *accountsRepo) GetAccountsByUserID(id domain.UserID) ([]*domain.Accou
 	return accounts, nil
 }
 
+type checkBalanceFn = func(account *domain.Account) error
 type balanceChangedFn = func(*domain.AccountBalanceChangedMsg)
 
 func (repo *accountsRepo) DebitOnAccountWithFn(
 	id domain.AccountID,
 	money float64,
-	fn balanceChangedFn,
-) error {
+	checkFn checkBalanceFn,
+	onChangeFn balanceChangedFn,
+) (*domain.Account, error) {
+	// Checking balance first
+	account, err := repo.GetAccountByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("get account by id, err=%w", err)
+	}
+
+	err = checkFn(account)
+	if err != nil {
+		return nil, fmt.Errorf("check fn, err=%w", err)
+	}
+
 	query := `
 	update accounts
 	set
@@ -133,8 +140,14 @@ func (repo *accountsRepo) DebitOnAccountWithFn(
 	where
 		id = $2
 	returning
-		old.balance as old_balance,
-		new.balance as new_balance
+		-- returning full account info on debit
+		id,
+		user_id,
+		fullname,
+		currency,
+		-- returning old and new balance for notification
+		balance - $1 as old_balance,
+		balance as new_balance
 	`
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
@@ -143,9 +156,16 @@ func (repo *accountsRepo) DebitOnAccountWithFn(
 	row := repo.db.QueryRowContext(ctx, query, money, id)
 
 	var oldBalance, newBalance float64
-	err := row.Scan(&oldBalance, &newBalance)
+	err = row.Scan(
+		&account.ID,
+		&account.UserID,
+		&account.Fullname,
+		&account.Currency,
+		&oldBalance,
+		&newBalance,
+	)
 	if err != nil {
-		return fmt.Errorf("repo db row scan account balance after update, err=%w", err)
+		return nil, fmt.Errorf("repo db row scan account balance after update, err=%w", err)
 	}
 
 	balanceChanged := &domain.AccountBalanceChangedMsg{
@@ -154,28 +174,28 @@ func (repo *accountsRepo) DebitOnAccountWithFn(
 		CurrentBalance:  newBalance,
 	}
 
-	fn(balanceChanged)
+	onChangeFn(balanceChanged)
 
-	return nil
+	account.Balance = newBalance
+
+	return account, nil
 }
-
-type checkBalanceFn = func(account *domain.Account) error
 
 func (repo *accountsRepo) WithdrawFromAccountWithFn(
 	id domain.AccountID,
 	money float64,
 	checkFn checkBalanceFn,
-	balanceFn balanceChangedFn,
-) error {
+	onChangeFn balanceChangedFn,
+) (*domain.Account, error) {
 	account, err := repo.GetAccountByID(id)
 	if err != nil {
-		return fmt.Errorf("repo get account by id, err=%w", err)
+		return nil, fmt.Errorf("repo get account by id, err=%w", err)
 	}
 
 	// Check balance by calling checkBalanceFn
 	err = checkFn(account)
 	if err != nil {
-		return fmt.Errorf("check balance fn, err=%w", err)
+		return nil, fmt.Errorf("check balance fn, err=%w", err)
 	}
 
 	query := `
@@ -185,8 +205,8 @@ func (repo *accountsRepo) WithdrawFromAccountWithFn(
 	where
 		id = $2
 	returning
-		old.balance as old_balance,
-		new.balance as new_balance
+		balance + $1 as old_balance,
+		balance as new_balance
 	`
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
@@ -197,15 +217,17 @@ func (repo *accountsRepo) WithdrawFromAccountWithFn(
 	var oldBalance, newBalance float64
 	err = row.Scan(&oldBalance, &newBalance)
 	if err != nil {
-		return fmt.Errorf("repo db row scan account balance after update, err=%w", err)
+		return nil, fmt.Errorf("repo db row scan account balance after update, err=%w", err)
 	}
 
 	// TODO
-	balanceFn(&domain.AccountBalanceChangedMsg{
+	onChangeFn(&domain.AccountBalanceChangedMsg{
 		AccountID:       id,
 		PreviousBalance: oldBalance,
 		CurrentBalance:  newBalance,
 	})
 
-	return nil
+	account.Balance = newBalance
+
+	return account, nil
 }
