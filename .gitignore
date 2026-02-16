@@ -3,6 +3,8 @@ bin/*
 log
 testlog
 *.json
+model.gen.go
+api.gen.go
 docker/rabbitmq-lib/*
 docker/rabbitmq-log/*
 docker/bank-db-data/*
