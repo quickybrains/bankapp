@@ -1,6 +1,7 @@
 bin/*
 .vscode/*
 log
+*.log
 testlog
 *.json
 model.gen.go
