@@ -45,15 +45,8 @@ func (s *Service) CreateTransaction(transaction *domain.Transaction) error {
 	err := s.repo.CreateTransactionWithFn(
 		context.Background(),
 		transaction,
+		// TODO: remove checkFn
 		func(account *domain.Account) error {
-			if transaction.Amount < 0 {
-				return domain.ErrNegativeAmount(transaction.Amount)
-			}
-
-			if account.Balance < transaction.Amount {
-				return domain.ErrInsufficientFunds()
-			}
-
 			return nil
 		},
 		func(msg *domain.AccountBalanceChangedMsg) {

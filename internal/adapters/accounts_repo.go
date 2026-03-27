@@ -26,7 +26,7 @@ func NewAccountsRepo(db db.CommonDB, conf *db.Config, log log.Logger) *accountsR
 	}
 }
 
-func (repo *accountsRepo) CreateAccount(account *domain.Account) error {
+func (repo *accountsRepo) CreateAccount(ctx context.Context, account *domain.Account) error {
 	query := `
 	insert into
 		accounts (id, user_id, fullname, currency, balance, created_at)
@@ -34,7 +34,7 @@ func (repo *accountsRepo) CreateAccount(account *domain.Account) error {
 		($1, $2, $3, $4, $5, $6)
 	`
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
+	ctx, cancelFn := context.WithTimeout(ctx, repo.conf.QueryTimeoutInSeconds())
 	defer cancelFn()
 
 	_, err := repo.db.ExecContext(
@@ -54,7 +54,7 @@ func (repo *accountsRepo) CreateAccount(account *domain.Account) error {
 	return nil
 }
 
-func (repo *accountsRepo) GetAccountByID(id domain.AccountID) (*domain.Account, error) {
+func (repo *accountsRepo) GetAccountByID(ctx context.Context, id domain.AccountID) (*domain.Account, error) {
 	query := `
 	select
 		id,
@@ -69,7 +69,7 @@ func (repo *accountsRepo) GetAccountByID(id domain.AccountID) (*domain.Account, 
 
 	var account domain.Account
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
+	ctx, cancelFn := context.WithTimeout(ctx, repo.conf.QueryTimeoutInSeconds())
 	defer cancelFn()
 
 	row := repo.db.QueryRowContext(ctx, query, id)
@@ -85,14 +85,14 @@ func (repo *accountsRepo) GetAccountByID(id domain.AccountID) (*domain.Account, 
 	return &account, nil
 }
 
-func (repo *accountsRepo) GetAccountsByUserID(user_id domain.UserID) ([]*domain.Account, error) {
+func (repo *accountsRepo) GetAccountsByUserID(ctx context.Context, user_id domain.UserID) ([]*domain.Account, error) {
 	query := `
 	select id, user_id, fullname, balance 
 	from accounts 
 	where user_id = $1
 	`
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
+	ctx, cancelFn := context.WithTimeout(ctx, repo.conf.QueryTimeoutInSeconds())
 	defer cancelFn()
 
 	rows, err := repo.db.QueryContext(ctx, query, user_id)
@@ -131,12 +131,16 @@ type checkBalanceFn = func(account *domain.Account) error
 type balanceChangedFn = func(*domain.AccountBalanceChangedMsg)
 
 func (repo *accountsRepo) DebitOnAccountWithFn(
+	ctx context.Context,
 	id domain.AccountID,
 	money float64,
 	checkFn checkBalanceFn,
 	onChangeFn balanceChangedFn,
 ) (*domain.Account, error) {
-	account, err := repo.GetAccountByID(id)
+	getAccountCtx, cancelFn := context.WithTimeout(ctx, repo.conf.QueryTimeoutInSeconds())
+	defer cancelFn()
+
+	account, err := repo.GetAccountByID(getAccountCtx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get account by id, err=%w", err)
 	}
@@ -163,10 +167,10 @@ func (repo *accountsRepo) DebitOnAccountWithFn(
 		balance as new_balance
 	`
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
+	updateBalanceCtx, cancelFn := context.WithTimeout(ctx, repo.conf.QueryTimeoutInSeconds())
 	defer cancelFn()
 
-	row := repo.db.QueryRowContext(ctx, query, money, id)
+	row := repo.db.QueryRowContext(updateBalanceCtx, query, money, id)
 
 	var oldBalance, newBalance float64
 	err = row.Scan(
@@ -195,40 +199,42 @@ func (repo *accountsRepo) DebitOnAccountWithFn(
 }
 
 func (repo *accountsRepo) WithdrawFromAccountWithFn(
+	ctx context.Context,
 	id domain.AccountID,
 	money float64,
 	checkFn checkBalanceFn,
 	onChangeFn balanceChangedFn,
 ) (*domain.Account, error) {
-	account, err := repo.GetAccountByID(id)
+	getAccountCtx, cancelFn := context.WithTimeout(ctx, repo.conf.QueryTimeoutInSeconds())
+	defer cancelFn()
+
+	account, err := repo.GetAccountByID(getAccountCtx, id)
 	if err != nil {
 		return nil, fmt.Errorf("repo get account by id, err=%w", err)
-	}
-
-	err = checkFn(account)
-	if err != nil {
-		return nil, fmt.Errorf("check balance fn, err=%w", err)
 	}
 
 	query := `
 	update accounts
 	set
 		balance = balance - $1
-	where
-		id = $2
+	where id = $2 and balance >= $1
 	returning
 		balance + $1 as old_balance,
 		balance as new_balance
 	`
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), repo.conf.QueryTimeoutInSeconds())
+	withdrawCtx, cancelFn := context.WithTimeout(ctx, repo.conf.QueryTimeoutInSeconds())
 	defer cancelFn()
 
-	row := repo.db.QueryRowContext(ctx, query, money, id)
+	row := repo.db.QueryRowContext(withdrawCtx, query, money, id)
 
 	var oldBalance, newBalance float64
 	err = row.Scan(&oldBalance, &newBalance)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrInsufficientFunds()
+		}
+
 		return nil, fmt.Errorf("repo db row scan account balance after update, err=%w", err)
 	}
 

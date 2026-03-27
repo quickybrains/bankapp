@@ -37,8 +37,8 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 		return fmt.Errorf("repo db begin tx, err=%w", err)
 	}
 
-	// First get an account
-	account, err := repo.getAccountWithTx(tx, ctx, transaction.FromAccountID)
+	// First check if accounts exist
+	_, err = repo.getAccountWithTx(tx, ctx, transaction.FromAccountID)
 	if err != nil {
 		rollbackErr := tx.Rollback()
 		if rollbackErr != nil {
@@ -48,31 +48,24 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 		return fmt.Errorf("repo get account with tx, err=%w", err)
 	}
 
-	// Check account balance by calling provided func
-	err = checkFn(account)
+	_, err = repo.getAccountWithTx(tx, ctx, transaction.ToAccountID)
 	if err != nil {
-		return fmt.Errorf("check balance fn, err=%w", err)
+		rollbackErr := tx.Rollback()
+		if rollbackErr != nil {
+			repo.log.Err(rollbackErr).Print("tx rollback")
+		}
+
+		return fmt.Errorf("repo get account with tx, err=%w", err)
 	}
 
+	// and we want to check rows affected after query completes
 	withdrawQuery := `
 	update accounts
 	set
 		balance = balance - $1
-	where
-		id = $2
+	where id = $2 and balance >= $1
 	returning
 		balance + $1 as old_balance,
-		balance as new_balance
-	`
-
-	debitQuery := `
-	update accounts
-	set
-		balance = balance + $1
-	where
-		id = $2
-	returning
-		balance - $1 as old_balance,
 		balance as new_balance
 	`
 
@@ -86,12 +79,25 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 			repo.log.Err(rollbackErr).Print("tx rollback")
 		}
 
+		// Since we checked for accounts here it means
+		// that the balance was insufficient
 		if errors.Is(err, sql.ErrNoRows) {
-			return domain.ErrNoAccountWithID(transaction.FromAccountID)
+			return domain.ErrInsufficientFunds()
 		}
 
 		return fmt.Errorf("repo db row scan updated from account balance, err=%w", err)
 	}
+
+	debitQuery := `
+	update accounts
+	set
+		balance = balance + $1
+	where
+		id = $2
+	returning
+		balance - $1 as old_balance,
+		balance as new_balance
+	`
 
 	var toOldBalance, toNewBalance float64
 	row = tx.QueryRowContext(ctx, debitQuery, transaction.Amount, transaction.ToAccountID)
@@ -100,10 +106,6 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 		rollbackErr := tx.Rollback()
 		if rollbackErr != nil {
 			repo.log.Err(rollbackErr).Print("tx rollback")
-		}
-
-		if errors.Is(err, sql.ErrNoRows) {
-			return domain.ErrNoAccountWithID(transaction.ToAccountID)
 		}
 
 		return fmt.Errorf("repo db row scan updated to account balance, err=%w", err)
