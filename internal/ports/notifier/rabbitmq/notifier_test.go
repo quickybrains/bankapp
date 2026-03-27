@@ -1,8 +1,10 @@
 package rabbitmq
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/quickybrains/bankapp/internal/ports/log/zerolog"
 	"github.com/quickybrains/bankapp/internal/ports/notifier"
 	"github.com/stretchr/testify/require"
@@ -15,4 +17,8 @@ func Test1(t *testing.T) {
 	}
 	_, err := NewNotifier(testConf, zerolog.New(logConf).With("component", "notifier_test"))
 	require.NoError(t, err)
+}
+
+func Test2(t *testing.T) {
+	fmt.Println(uuid.New())
 }
