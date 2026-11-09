@@ -67,7 +67,7 @@ func (handler *HTTPHandler) PostTransactions(w nethttp.ResponseWriter, r *nethtt
 		return
 	}
 
-	err = handler.service.CreateTransaction(transaction)
+	err = handler.service.CreateTransaction(r.Context(), transaction)
 	if err != nil {
 		handler.log.Err(err).Print("service withdraw from account")
 
@@ -89,7 +89,7 @@ func (handler *HTTPHandler) PostTransactions(w nethttp.ResponseWriter, r *nethtt
 }
 
 func (handler *HTTPHandler) GetTransactionsId(w nethttp.ResponseWriter, r *nethttp.Request, id httpcommon.IdParam) {
-	transaction, err := handler.service.GetTransactionByID(domain.TransactionID(id))
+	transaction, err := handler.service.GetTransactionByID(r.Context(), domain.TransactionID(id))
 	if err != nil {
 		handler.log.Err(err).String("transaction_id", id.String()).Print("service get transaction by id")
 

@@ -20,14 +20,12 @@ type accountsRepo interface {
 		ctx context.Context,
 		id domain.AccountID,
 		money float64,
-		checkBalanceFn checkBalanceFn,
 		fn balanceChangedFn,
 	) (*domain.Account, error)
 	WithdrawFromAccountWithFn(
 		ctx context.Context,
 		id domain.AccountID,
 		money float64,
-		checkBalanceFn checkBalanceFn,
 		balanceFn balanceChangedFn,
 	) (*domain.Account, error)
 }
@@ -50,8 +48,8 @@ func NewService(repo accountsRepo, notifier balanceChangedNotifier, log log.Logg
 	}
 }
 
-func (s *Service) CreateAccount(account *domain.Account) error {
-	err := s.repo.CreateAccount(context.Background(), account)
+func (s *Service) CreateAccount(ctx context.Context, account *domain.Account) error {
+	err := s.repo.CreateAccount(ctx, account)
 	if err != nil {
 		return fmt.Errorf("repo create account, err=%w", err)
 	}
@@ -59,8 +57,8 @@ func (s *Service) CreateAccount(account *domain.Account) error {
 	return nil
 }
 
-func (s *Service) GetAccountByID(id domain.AccountID) (*domain.Account, error) {
-	account, err := s.repo.GetAccountByID(context.Background(), id)
+func (s *Service) GetAccountByID(ctx context.Context, id domain.AccountID) (*domain.Account, error) {
+	account, err := s.repo.GetAccountByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("repo get account by id, id=%v, err=%w", id, err)
 	}
@@ -68,8 +66,8 @@ func (s *Service) GetAccountByID(id domain.AccountID) (*domain.Account, error) {
 	return account, nil
 }
 
-func (s *Service) GetAccountsByUserID(id domain.UserID) ([]*domain.Account, error) {
-	accounts, err := s.repo.GetAccountsByUserID(context.Background(), id)
+func (s *Service) GetAccountsByUserID(ctx context.Context, id domain.UserID) ([]*domain.Account, error) {
+	accounts, err := s.repo.GetAccountsByUserID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("repo get accounts by user id, user_id=%v, err=%w", id, err)
 	}
@@ -77,22 +75,14 @@ func (s *Service) GetAccountsByUserID(id domain.UserID) ([]*domain.Account, erro
 	return accounts, nil
 }
 
-func (s *Service) DebitOnAccount(id domain.AccountID, money float64) (*domain.Account, error) {
+func (s *Service) DebitOnAccount(ctx context.Context, id domain.AccountID, money float64) (*domain.Account, error) {
 	account, err := s.repo.DebitOnAccountWithFn(
-		context.Background(),
+		ctx,
 		id,
 		money,
-		func(account *domain.Account) error {
-			if money < 0 {
-				return domain.ErrNegativeAmount(money)
-			}
-
-			return nil
-		},
 		func(msg *domain.AccountBalanceChangedMsg) {
-			// TODO: context
 			// Notifying on changing balance
-			err := s.notifier.NotifyBalanceChanged(context.Background(), msg)
+			err := s.notifier.NotifyBalanceChanged(ctx, msg)
 			if err != nil {
 				s.log.Err(err).Print("notify balance changed")
 			}
@@ -105,27 +95,14 @@ func (s *Service) DebitOnAccount(id domain.AccountID, money float64) (*domain.Ac
 	return account, nil
 }
 
-func (s *Service) WithdrawFromAccount(id domain.AccountID, money float64) (*domain.Account, error) {
+func (s *Service) WithdrawFromAccount(ctx context.Context, id domain.AccountID, money float64) (*domain.Account, error) {
 	account, err := s.repo.WithdrawFromAccountWithFn(
-		context.Background(),
+		ctx,
 		id,
 		money,
-		func(account *domain.Account) error {
-			if money < 0 {
-				return domain.ErrNegativeAmount(money)
-			}
-
-			// Checking that account has sufficient funds
-			if account.Balance < money {
-				return domain.ErrInsufficientFunds()
-			}
-
-			return nil
-		},
 		func(msg *domain.AccountBalanceChangedMsg) {
-			// TODO: context
 			// Notifying on changing balance
-			err := s.notifier.NotifyBalanceChanged(context.Background(), msg)
+			err := s.notifier.NotifyBalanceChanged(ctx, msg)
 			if err != nil {
 				s.log.Err(err).Print("notify balance changed")
 			}

@@ -31,7 +31,6 @@ func (c *Config) DSN() string {
 	return c.connectionURL(url.Values{})
 }
 
-// TODO: add options
 func (c *Config) DSNWithOptions() string {
 	maxConnections := c.MaxOpenConnections
 	if maxConnections <= 0 {

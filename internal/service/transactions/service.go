@@ -8,14 +8,12 @@ import (
 	"github.com/quickybrains/bankapp/internal/ports/log"
 )
 
-type checkBalanceFn = func(account *domain.Account) error
 type balanceChangedFn = func(*domain.AccountBalanceChangedMsg)
 
 type transactionsRepo interface {
 	CreateTransactionWithFn(
 		ctx context.Context,
 		transaction *domain.Transaction,
-		checkFn checkBalanceFn,
 		balanceFn balanceChangedFn,
 	) error
 	GetTransactionByID(ctx context.Context, transaction domain.TransactionID) (*domain.Transaction, error)
@@ -40,15 +38,10 @@ func NewService(repo transactionsRepo, notifier balanceChangedNotifier, log log.
 	}
 }
 
-func (s *Service) CreateTransaction(transaction *domain.Transaction) error {
-	// TODO: context
+func (s *Service) CreateTransaction(ctx context.Context, transaction *domain.Transaction) error {
 	err := s.repo.CreateTransactionWithFn(
-		context.Background(),
+		ctx,
 		transaction,
-		// TODO: remove checkFn
-		func(account *domain.Account) error {
-			return nil
-		},
 		func(msg *domain.AccountBalanceChangedMsg) {
 			err := s.notifier.NotifyBalanceChanged(context.Background(), msg)
 			if err != nil {
@@ -62,9 +55,8 @@ func (s *Service) CreateTransaction(transaction *domain.Transaction) error {
 	return nil
 }
 
-func (s *Service) GetTransactionByID(id domain.TransactionID) (*domain.Transaction, error) {
-	// TODO: context
-	tx, err := s.repo.GetTransactionByID(context.Background(), id)
+func (s *Service) GetTransactionByID(ctx context.Context, id domain.TransactionID) (*domain.Transaction, error) {
+	tx, err := s.repo.GetTransactionByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("repo get transaction by id, transaction id=%v, err=%w", id, err)
 	}
