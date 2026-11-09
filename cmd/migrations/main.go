@@ -47,4 +47,9 @@ func main() {
 	default:
 		log.Fatalf("Unknown migration command %s. Only up/down available.", os.Args[1])
 	}
+
+	serr, derr := m.Close()
+	if serr != nil || derr != nil {
+		log.Fatalf("Failed to close migration resource properly, serr: %s, derr: %s ", serr.Error(), derr.Error())
+	}
 }

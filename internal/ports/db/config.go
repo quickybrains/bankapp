@@ -1,7 +1,9 @@
 package db
 
 import (
-	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -26,41 +28,36 @@ type Config struct {
 }
 
 func (c *Config) DSN() string {
-	if c.SSLMode == "" {
-		c.SSLMode = "disable"
-	}
-
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%v/%s?sslmode=%s",
-		c.User,
-		c.Password,
-		c.Path,
-		c.Port,
-		c.DBName,
-		c.SSLMode,
-	)
+	return c.connectionURL(url.Values{})
 }
 
 // TODO: add options
 func (c *Config) DSNWithOptions() string {
-	if c.MaxOpenConnections <= 0 {
-		c.MaxOpenConnections = maxOpenConnections
+	maxConnections := c.MaxOpenConnections
+	if maxConnections <= 0 {
+		maxConnections = maxOpenConnections
 	}
 
-	if c.SSLMode == "" {
-		c.SSLMode = "disable"
+	query := url.Values{
+		"pool_max_conns": []string{strconv.Itoa(maxConnections)},
 	}
+	return c.connectionURL(query)
+}
 
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%v/%s?pool_max_conns=%v&sslmode=%s",
-		c.User,
-		c.Password,
-		c.Path,
-		c.Port,
-		c.DBName,
-		c.MaxOpenConnections,
-		c.SSLMode,
-	)
+func (c *Config) connectionURL(query url.Values) string {
+	sslMode := c.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+	query.Set("sslmode", sslMode)
+
+	return (&url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(c.User, c.Password),
+		Host:     net.JoinHostPort(c.Path, c.Port),
+		Path:     "/" + c.DBName,
+		RawQuery: query.Encode(),
+	}).String()
 }
 
 func (c *Config) PoolConnectTimeoutInSeconds() time.Duration {
