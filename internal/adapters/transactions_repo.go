@@ -29,7 +29,6 @@ func NewTransactionsRepo(db db.CommonDB, conf *db.Config, log log.Logger) *trans
 func (repo *transactionsRepo) CreateTransactionWithFn(
 	ctx context.Context,
 	transaction *domain.Transaction,
-	checkFn checkBalanceFn,
 	balanceFn balanceChangedFn,
 ) error {
 	tx, err := repo.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted, ReadOnly: false})

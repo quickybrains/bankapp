@@ -66,7 +66,7 @@ func (handler *HTTPHandler) PostAccounts(w nethttp.ResponseWriter, r *nethttp.Re
 		return
 	}
 
-	err = handler.service.CreateAccount(account)
+	err = handler.service.CreateAccount(r.Context(), account)
 	if err != nil {
 		handler.log.
 			Err(err).
@@ -92,7 +92,7 @@ func (handler *HTTPHandler) PostAccounts(w nethttp.ResponseWriter, r *nethttp.Re
 }
 
 func (handler *HTTPHandler) GetAccounts(w nethttp.ResponseWriter, r *nethttp.Request, params GetAccountsParams) {
-	accounts, err := handler.service.GetAccountsByUserID(params.UserId)
+	accounts, err := handler.service.GetAccountsByUserID(r.Context(), params.UserId)
 	if err != nil {
 		handler.log.
 			Err(err).
@@ -121,7 +121,7 @@ func (handler *HTTPHandler) GetAccounts(w nethttp.ResponseWriter, r *nethttp.Req
 
 func (handler *HTTPHandler) GetAccountsId(w nethttp.ResponseWriter, r *nethttp.Request, id httpcommon.IdParam) {
 	accountID := domain.AccountID(id)
-	account, err := handler.service.GetAccountByID(accountID)
+	account, err := handler.service.GetAccountByID(r.Context(), accountID)
 	if err != nil {
 		handler.log.
 			Err(err).
@@ -176,7 +176,7 @@ func (handler *HTTPHandler) PostAccountsDebit(w nethttp.ResponseWriter, r *netht
 		return
 	}
 
-	account, err := handler.service.DebitOnAccount(debitReq.AccountId, debitReq.Amount)
+	account, err := handler.service.DebitOnAccount(r.Context(), debitReq.AccountId, debitReq.Amount)
 	if err != nil {
 		handler.log.Err(err).Print("service debit on account")
 
@@ -228,7 +228,7 @@ func (handler *HTTPHandler) PostAccountsWithdraw(w nethttp.ResponseWriter, r *ne
 		return
 	}
 
-	account, err := handler.service.WithdrawFromAccount(withdrawReq.AccountId, withdrawReq.Amount)
+	account, err := handler.service.WithdrawFromAccount(r.Context(), withdrawReq.AccountId, withdrawReq.Amount)
 	if err != nil {
 		handler.log.Err(err).Print("service withdraw from account")
 
