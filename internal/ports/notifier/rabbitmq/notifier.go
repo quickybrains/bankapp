@@ -88,6 +88,29 @@ func (notifier *rabbitMQNotifier) init() error {
 		return fmt.Errorf("amqp channel exchange declare, err=%w", err)
 	}
 
+	q, err := ch.QueueDeclare(
+		"",    // name
+		false, // durable
+		false, // delete when unused
+		true,  // exclusive
+		false, // no-wait
+		nil,   // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("amqp channel queue declare, err=%w", err)
+	}
+
+	err = ch.QueueBind(
+		q.Name,       // queue name (generated)
+		"",           // routing key
+		exchangeName, // exchange
+		false,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("amqp channel queue bind, err=%w", err)
+	}
+
 	notifier.log.
 		With("exchange", exchangeName).
 		Info().
