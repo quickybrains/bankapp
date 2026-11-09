@@ -44,7 +44,7 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 			repo.log.Err(rollbackErr).Print("tx rollback")
 		}
 
-		return fmt.Errorf("repo get account with tx, err=%w", err)
+		return domain.ErrNoAccountWithID(transaction.FromAccountID)
 	}
 
 	_, err = repo.getAccountWithTx(tx, ctx, transaction.ToAccountID)
@@ -54,7 +54,7 @@ func (repo *transactionsRepo) CreateTransactionWithFn(
 			repo.log.Err(rollbackErr).Print("tx rollback")
 		}
 
-		return fmt.Errorf("repo get account with tx, err=%w", err)
+		return domain.ErrNoAccountWithID(transaction.ToAccountID)
 	}
 
 	// and we want to check rows affected after query completes

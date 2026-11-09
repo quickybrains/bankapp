@@ -20,14 +20,12 @@ type accountsRepo interface {
 		ctx context.Context,
 		id domain.AccountID,
 		money float64,
-		checkBalanceFn checkBalanceFn,
 		fn balanceChangedFn,
 	) (*domain.Account, error)
 	WithdrawFromAccountWithFn(
 		ctx context.Context,
 		id domain.AccountID,
 		money float64,
-		checkBalanceFn checkBalanceFn,
 		balanceFn balanceChangedFn,
 	) (*domain.Account, error)
 }
@@ -82,13 +80,6 @@ func (s *Service) DebitOnAccount(ctx context.Context, id domain.AccountID, money
 		ctx,
 		id,
 		money,
-		func(account *domain.Account) error {
-			if money < 0 {
-				return domain.ErrNegativeAmount(money)
-			}
-
-			return nil
-		},
 		func(msg *domain.AccountBalanceChangedMsg) {
 			// Notifying on changing balance
 			err := s.notifier.NotifyBalanceChanged(ctx, msg)
@@ -109,18 +100,6 @@ func (s *Service) WithdrawFromAccount(ctx context.Context, id domain.AccountID, 
 		ctx,
 		id,
 		money,
-		func(account *domain.Account) error {
-			if money < 0 {
-				return domain.ErrNegativeAmount(money)
-			}
-
-			// Checking that account has sufficient funds
-			if account.Balance < money {
-				return domain.ErrInsufficientFunds()
-			}
-
-			return nil
-		},
 		func(msg *domain.AccountBalanceChangedMsg) {
 			// Notifying on changing balance
 			err := s.notifier.NotifyBalanceChanged(ctx, msg)
